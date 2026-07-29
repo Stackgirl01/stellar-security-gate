@@ -1,0 +1,111 @@
+name: 'Stellar Security Gate'
+description: 'Runs secret scanning, dependency audit, and Soroban-specific security checks on every PR to a Stellar/Soroban repo.'
+author: 'Sycosmile'
+branding:
+  icon: 'shield'
+  color: 'blue'
+
+inputs:
+  github-token:
+    description: 'Token used to post/update the PR comment. Defaults to the workflow GITHUB_TOKEN.'
+    required: false
+    default: ${{ github.token }}
+  fail-on-severity:
+    description: 'Minimum severity that fails the check: "high", "medium", "low", or "off" to never fail.'
+    required: false
+    default: 'high'
+  soroban-path:
+    description: 'Path (relative to repo root) to scan for Soroban contract source files.'
+    required: false
+    default: '.'
+  skip-secrets:
+    description: 'Set to "true" to skip secret scanning (e.g. if you already run gitleaks elsewhere).'
+    required: false
+    default: 'false'
+  skip-dependency-audit:
+    description: 'Set to "true" to skip npm/cargo dependency audits.'
+    required: false
+    default: 'false'
+
+outputs:
+  findings-count:
+    description: 'Total number of findings across all checks.'
+    value: ${{ steps.aggregate.outputs.findings-count }}
+  highest-severity:
+    description: 'Highest severity found across all checks.'
+    value: ${{ steps.aggregate.outputs.highest-severity }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Detect project languages
+      id: detect
+      shell: bash
+      run: |
+        HAS_CARGO="false"
+        HAS_NPM="false"
+        if [ -f "Cargo.lock" ]; then HAS_CARGO="true"; fi
+        if [ -f "package-lock.json" ] || [ -f "pnpm-lock.yaml" ] || [ -f "yarn.lock" ]; then HAS_NPM="true"; fi
+        echo "has-cargo=$HAS_CARGO" >> "$GITHUB_OUTPUT"
+        echo "has-npm=$HAS_NPM" >> "$GITHUB_OUTPUT"
+
+    - name: Install gitleaks
+      if: inputs.skip-secrets != 'true'
+      shell: bash
+      continue-on-error: true
+      run: |
+        GITLEAKS_VERSION="8.21.2"
+        curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" -o /tmp/gitleaks.tar.gz
+        tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+        chmod +x /tmp/gitleaks
+
+    - name: Run gitleaks
+      if: inputs.skip-secrets != 'true'
+      id: gitleaks
+      shell: bash
+      continue-on-error: true
+      run: |
+        if [ -x /tmp/gitleaks ]; then
+          /tmp/gitleaks git --report-format json --report-path gitleaks-report.json --exit-code 0 .
+        else
+          echo "::warning::gitleaks binary not found (install step may have failed) — skipping secret scan for this run."
+        fi
+
+    - name: Cargo dependency audit
+      if: inputs.skip-dependency-audit != 'true' && steps.detect.outputs.has-cargo == 'true'
+      id: cargo-audit
+      shell: bash
+      continue-on-error: true
+      run: |
+        cargo install cargo-audit --locked --quiet || true
+        cargo audit --json > cargo-audit-report.json || true
+
+    - name: npm dependency audit
+      if: inputs.skip-dependency-audit != 'true' && steps.detect.outputs.has-npm == 'true'
+      id: npm-audit
+      shell: bash
+      continue-on-error: true
+      run: |
+        # npm audit exits non-zero whenever it finds vulnerabilities — that's the
+        # normal/expected case, not a failure. The report is still written to the
+        # file before the non-zero exit, so `|| true` here preserves it instead of
+        # overwriting it with an empty object.
+        npm audit --json > npm-audit-report.json || true
+
+    - name: Soroban auth & panic checks
+      id: soroban
+      shell: bash
+      run: node ${{ github.action_path }}/scripts/soroban-check.js "${{ inputs.soroban-path }}" > soroban-report.json
+
+    - name: Aggregate findings & comment on PR
+      id: aggregate
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        FAIL_ON_SEVERITY: ${{ inputs.fail-on-severity }}
+      run: node ${{ github.action_path }}/scripts/post-comment.js

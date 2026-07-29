@@ -1,0 +1,23 @@
+name: Stellar Security Gate
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  security-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Stellar Security Gate
+        uses: Sycosmile/stellar-security-gate@v1
+        with:
+          fail-on-severity: high
+          soroban-path: contracts

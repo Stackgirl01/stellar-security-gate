@@ -1,0 +1,12 @@
+{
+  "name": "stellar-security-gate",
+  "version": "0.1.0",
+  "description": "GitHub Action: secret scanning, dependency audit, and Soroban-specific security checks for Stellar dApp repos.",
+  "private": true,
+  "scripts": {
+    "test": "node test/soroban-check.test.js"
+  },
+  "license": "MIT",
+  "author": "Sycosmile",
+  "keywords": ["stellar", "soroban", "security", "github-action", "ci"]
+}

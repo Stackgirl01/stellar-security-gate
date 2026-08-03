@@ -31,7 +31,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: Sycosmile/stellar-security-gate@v1
+      - uses: Stackgirl01/stellar-security-gate@v1
         with:
           fail-on-severity: high   # "critical" | "high" | "medium" | "low" | "off"
           soroban-path: contracts  # where to look for .rs contract files

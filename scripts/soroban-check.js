@@ -1,9 +1,9 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 'use strict';
 
 /**
  * Heuristic, regex/brace-based scanner for Soroban contract Rust files.
- * Not a full Rust parser — deliberately simple so it stays fast, dependency-free,
+ * Not a full Rust parser â€” deliberately simple so it stays fast, dependency-free,
  * and easy to extend. False positives are possible; findings are meant to prompt
  * a human review, not to be treated as ground truth.
  *
@@ -75,7 +75,8 @@ function lineNumberAt(source, index) {
   return line;
 }
 
-const FN_SIGNATURE_RE = /pub\s+fn\s+(\w+)\s*\(([^)]*)\)/g;
+// Accept common visibility variants like `pub(crate)` and optional `async`.
+const FN_SIGNATURE_RE = /pub(?:\s*\([^)]*\))?\s+(?:async\s+)?fn\s+([A-Za-z_]\w*)\s*\(([^)]*)\)/g;
 
 function extractFunctions(source) {
   const fns = [];
@@ -116,7 +117,7 @@ function checkFile(filePath, source, findings) {
   for (const fn of fns) {
     // Check 1: Address param on a state-mutating fn without require_auth in body.
     // Read-only getters don't need auth, so we only flag functions that actually
-    // write to storage — otherwise this rule is noisy enough to undermine trust
+    // write to storage â€” otherwise this rule is noisy enough to undermine trust
     // in the tool (verified against a false positive on a plain getter during testing).
     if (/\bAddress\b/.test(fn.params)) {
       const mutatesStorage = /\.storage\(\)[\s\S]*?\.(set|remove|extend_ttl|bump)\s*\(/.test(fn.body);
@@ -164,7 +165,7 @@ function main() {
       checkFile(file, source, findings);
     }
   } catch (err) {
-    // Never let an unexpected parsing error take down the whole Action run —
+    // Never let an unexpected parsing error take down the whole Action run â€”
     // print a warning and fall through with whatever findings were gathered
     // before the failure, rather than crashing the pipeline.
     console.error(`soroban-check: unexpected error during scan, continuing with partial results: ${err.message}`);
@@ -174,3 +175,4 @@ function main() {
 }
 
 main();
+

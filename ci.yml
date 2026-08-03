@@ -25,10 +25,30 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          # If a lockfile is present prefer `npm ci` (reproducible),
+          # if only package.json exists fall back to `npm install`,
+          # otherwise skip JS install entirely.
+          if [ -f package-lock.json ] || [ -f pnpm-lock.yaml ] || [ -f yarn.lock ]; then
+            echo "Lockfile found — using npm ci"
+            npm ci
+          elif [ -f package.json ]; then
+            echo "package.json found but no lockfile — running npm install"
+            npm install
+          else
+            echo "No JavaScript project detected — skipping install"
+          fi
 
       - name: Run test suite
-        run: npm test
+        run: |
+          # Run tests only if package.json exists and `npm test` is runnable
+          if [ -f package.json ]; then
+            # npm test may exit non-zero when tests fail; that's expected.
+            echo "Running npm test"
+            npm test
+          else
+            echo "No JS tests detected — skipping npm test"
+          fi
 
   self-check:
     # Dogfood the action against this repo's own fixtures.

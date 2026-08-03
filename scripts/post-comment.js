@@ -126,19 +126,46 @@ function buildCommentBody(findings) {
     body += `#### ${sectionTitles[source] || source}\n\n`;
     for (const f of items) {
       const loc = f.line ? `${f.file}:${f.line}` : f.file;
-      body += `- ${severityEmoji(f.severity)} **${f.severity.toUpperCase()}** — \`${loc}\` — ${f.message}\n`;
+      body += `- ${severityEmoji(f.severity)} **${f.severity.toUpperCase()}** — ` + `\`${loc}\` — ${f.message}\n`;
     }
     body += '\n';
   }
 
-  body += `_Heuristic checks — please review findings rather than treating them as ground truth._`;
+  body += '_Heuristic checks — please review findings rather than treating them as ground truth._';
   return body;
 }
 
 async function postOrUpdateComment(body, token) {
   const repoFull = process.env.GITHUB_REPOSITORY;
   const eventPath = process.env.GITHUB_EVENT_PATH;
-  if (!token || !repoFull || !eventPath) return;
+  if (!token) {
+    console.warn('GITHUB_TOKEN not provided — skipping PR comment');
+    return;
+  }
+  if (!repoFull) {
+    console.warn('GITHUB_REPOSITORY not set — skipping PR comment');
+    return;
+  }
+  if (!eventPath) {
+    console.warn('GITHUB_EVENT_PATH not set — skipping PR comment');
+    return;
+  }
+  if (!fs.existsSync(eventPath)) {
+    console.warn(`Event file ${eventPath} not found — skipping PR comment`);
+    return;
+  }
+
+  // Prefer global fetch (Node 18+); fall back to node-fetch if available.
+  let fetchFn = global.fetch;
+  if (!fetchFn) {
+    try {
+      // node-fetch v2 is CJS; v3 is ESM-only so this may fail in some setups.
+      fetchFn = require('node-fetch');
+    } catch (err) {
+      console.warn('fetch not available and node-fetch could not be required — skipping POST to GitHub API');
+      return;
+    }
+  }
 
   const event = readJsonSafe(eventPath);
   const prNumber = event?.pull_request?.number;
@@ -153,20 +180,20 @@ async function postOrUpdateComment(body, token) {
   };
 
   try {
-    const listRes = await fetch(`${apiBase}/issues/${prNumber}/comments?per_page=100`, { headers });
+    const listRes = await fetchFn(`${apiBase}/issues/${prNumber}/comments?per_page=100`, { headers });
     const comments = listRes.ok ? await listRes.json() : [];
     const existing = Array.isArray(comments)
       ? comments.find((c) => typeof c.body === 'string' && c.body.includes(COMMENT_MARKER))
       : null;
 
     if (existing) {
-      await fetch(`${apiBase}/issues/comments/${existing.id}`, {
+      await fetchFn(`${apiBase}/issues/comments/${existing.id}`, {
         method: 'PATCH',
         headers,
         body: JSON.stringify({ body }),
       });
     } else {
-      await fetch(`${apiBase}/issues/${prNumber}/comments`, {
+      await fetchFn(`${apiBase}/issues/${prNumber}/comments`, {
         method: 'POST',
         headers,
         body: JSON.stringify({ body }),

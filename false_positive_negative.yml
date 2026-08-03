@@ -1,0 +1,48 @@
+name: False positive / false negative
+description: A Soroban check (missing-require-auth or risky-unwrap) fired when it shouldn't have, or missed something it should have caught.
+title: "[check-name] short description"
+labels: ["bug", "detection-accuracy"]
+body:
+  - type: dropdown
+    id: check
+    attributes:
+      label: Which check?
+      options:
+        - missing-require-auth
+        - risky-unwrap
+        - secret-scanning (gitleaks)
+        - dependency-audit
+        - Not sure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: False positive or false negative?
+      options:
+        - False positive (flagged something that's fine)
+        - False negative (missed something that should have been flagged)
+    validations:
+      required: true
+
+  - type: textarea
+    id: snippet
+    attributes:
+      label: Minimal Rust/Soroban snippet that reproduces it
+      description: Smaller is better — this can likely become a test fixture directly.
+      render: rust
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs. actual behavior
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Action version (e.g. v1)

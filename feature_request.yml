@@ -1,0 +1,27 @@
+name: Feature request
+description: Suggest a new check, input, or capability.
+title: "[feature] short description"
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed approach
+      description: If you have one in mind. Otherwise leave blank and we can discuss.
+
+  - type: checkboxes
+    id: tradeoffs
+    attributes:
+      label: Tradeoffs
+      description: This project deliberately favors fast/dependency-free heuristics over a full parser. Does your proposal affect that?
+      options:
+        - label: This would add a new dependency
+        - label: This would meaningfully slow down the scan
+        - label: Neither of the above

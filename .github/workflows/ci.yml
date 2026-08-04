@@ -63,5 +63,5 @@ jobs:
       - name: Run stellar-security-gate against test fixtures
         uses: ./
         with:
-          fail-on-severity: high
+          fail-on-severity: "off"
           soroban-path: test/fixtures

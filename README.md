@@ -1,4 +1,4 @@
-# Stellar Security Gate
+# Stellar Security Gate (●'◡'●)
 
 A GitHub Action that runs on every pull request to a Stellar/Soroban repo and checks for:
 
